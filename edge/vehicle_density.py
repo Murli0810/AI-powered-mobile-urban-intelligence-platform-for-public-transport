@@ -1,0 +1,89 @@
+"""
+Phase 2: Vehicle detection + tracking + counting.
+
+Concept:
+- YOLOv8 detects vehicles in each frame (car, motorcycle, bus, truck).
+- A raw per-frame count is USELESS for real traffic stats — the same car
+  gets detected in every frame it appears in, so "count" would just mean
+  "how many frames had a car in them," not "how many distinct cars passed."
+- Tracking (ByteTrack, bundled into `supervision`) assigns each vehicle a
+  persistent ID across frames, so we can count DISTINCT vehicles, not
+  detections.
+"""
+
+from ultralytics import YOLO
+import supervision as sv
+import cv2
+
+# COCO class IDs for vehicle types (YOLOv8 is pretrained on COCO)
+VEHICLE_CLASS_IDS = {
+    2: "car",
+    3: "motorcycle",
+    5: "bus",
+    7: "truck",
+}
+
+
+def process_video(video_path: str, output_path: str = "output.mp4", conf_threshold: float = 0.4):
+    model = YOLO("yolov8n.pt")  # nano model: fastest, good enough for MVP/demo
+    tracker = sv.ByteTrack()  # assigns persistent IDs across frames
+    box_annotator = sv.BoxAnnotator()
+    label_annotator = sv.LabelAnnotator()
+
+    seen_ids = set()  # every unique tracker ID we've ever seen = distinct vehicle count
+    class_counts = {name: 0 for name in VEHICLE_CLASS_IDS.values()}
+
+    cap = cv2.VideoCapture(video_path)
+    fps = cap.get(cv2.CAP_PROP_FPS) or 25
+    w, h = int(cap.get(3)), int(cap.get(4))
+    writer = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
+
+    frame_idx = 0
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        # Run detection, keep only vehicle classes above confidence threshold
+        results = model(frame, verbose=False)[0]
+        detections = sv.Detections.from_ultralytics(results)
+        mask = [
+            (cls_id in VEHICLE_CLASS_IDS) and (conf >= conf_threshold)
+            for cls_id, conf in zip(detections.class_id, detections.confidence)
+        ]
+        detections = detections[mask]
+
+        # Feed into tracker -> each detection now has a stable tracker_id
+        detections = tracker.update_with_detections(detections)
+
+        # Update distinct-vehicle bookkeeping
+        for tid, cls_id in zip(detections.tracker_id, detections.class_id):
+            if tid not in seen_ids:
+                seen_ids.add(tid)
+                class_counts[VEHICLE_CLASS_IDS[cls_id]] += 1
+
+        labels = [
+            f"#{tid} {VEHICLE_CLASS_IDS[cls_id]} {conf:.2f}"
+            for tid, cls_id, conf in zip(detections.tracker_id, detections.class_id, detections.confidence)
+        ]
+        annotated = box_annotator.annotate(frame.copy(), detections)
+        annotated = label_annotator.annotate(annotated, detections, labels)
+        cv2.putText(annotated, f"Distinct vehicles so far: {len(seen_ids)}",
+                    (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+
+        writer.write(annotated)
+        frame_idx += 1
+
+    cap.release()
+    writer.release()
+
+    print(f"Processed {frame_idx} frames.")
+    print(f"Total distinct vehicles: {len(seen_ids)}")
+    print(f"By class: {class_counts}")
+    return {"total": len(seen_ids), "by_class": class_counts}
+
+
+if __name__ == "__main__":
+    import sys
+    video_path = sys.argv[1] if len(sys.argv) > 1 else "../data/sample.mp4"
+    process_video(video_path)
