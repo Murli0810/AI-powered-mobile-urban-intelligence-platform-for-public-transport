@@ -24,7 +24,7 @@ VEHICLE_CLASS_IDS = {
 }
 
 
-def process_video(video_path: str, output_path: str = "output.mp4", conf_threshold: float = 0.4):
+def process_video(video_path: str, output_path: str = "vehicle_output.mp4", conf_threshold: float = 0.4):
     model = YOLO("yolov8n.pt")  # nano model: fastest, good enough for MVP/demo
     tracker = sv.ByteTrack()  # assigns persistent IDs across frames
     box_annotator = sv.BoxAnnotator()
