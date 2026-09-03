@@ -11,7 +11,15 @@ pip install requests
 
 import requests
 
-OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+# Public Overpass instances -- if the first is down/rate-limiting, fall back to the next
+OVERPASS_MIRRORS = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+]
+
+# Overpass's public servers reject requests with the default python-requests
+# User-Agent as basic bot filtering -- a real-looking User-Agent avoids this.
+HEADERS = {"User-Agent": "SIH2026-UrbanIntelligencePlatform/1.0 (student hackathon project)"}
 
 
 def is_near_school(lat: float, lon: float, radius_m: int = 150) -> dict:
@@ -27,9 +35,19 @@ def is_near_school(lat: float, lon: float, radius_m: int = 150) -> dict:
     );
     out center;
     """
-    response = requests.post(OVERPASS_URL, data={"data": query}, timeout=10)
-    response.raise_for_status()
-    data = response.json()
+
+    last_error = None
+    for url in OVERPASS_MIRRORS:
+        try:
+            response = requests.post(url, data={"data": query}, headers=HEADERS, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            break
+        except requests.exceptions.RequestException as e:
+            last_error = e
+            continue
+    else:
+        raise RuntimeError(f"All Overpass mirrors failed. Last error: {last_error}")
 
     schools = [
         {"name": el.get("tags", {}).get("name", "Unnamed school"),
@@ -66,6 +84,6 @@ def evaluate_infrastructure_need(event_lat, event_lon, pedestrian_alert_count: i
 if __name__ == "__main__":
     # Example: test against a known coordinate (replace with a real one near you)
     result = evaluate_infrastructure_need(
-        event_lat=22.8046, event_lon=86.2029, pedestrian_alert_count=5
+        event_lat=22.772303, event_lon=86.204252, pedestrian_alert_count=5
     )
     print(result)
