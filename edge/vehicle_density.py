@@ -1,16 +1,3 @@
-"""
-Phase 2: Vehicle detection + tracking + counting.
-
-Concept:
-- YOLOv8 detects vehicles in each frame (car, motorcycle, bus, truck).
-- A raw per-frame count is USELESS for real traffic stats — the same car
-  gets detected in every frame it appears in, so "count" would just mean
-  "how many frames had a car in them," not "how many distinct cars passed."
-- Tracking (ByteTrack, bundled into `supervision`) assigns each vehicle a
-  persistent ID across frames, so we can count DISTINCT vehicles, not
-  detections.
-"""
-
 from ultralytics import YOLO
 import supervision as sv
 import cv2
@@ -18,7 +5,6 @@ import cv2
 from event_client import send_event
 from gps_matcher import simulate_route
 
-# COCO class IDs for vehicle types (YOLOv8 is pretrained on COCO)
 VEHICLE_CLASS_IDS = {
     2: "car",
     3: "motorcycle",
@@ -26,20 +12,18 @@ VEHICLE_CLASS_IDS = {
     7: "truck",
 }
 
-# Placeholder route coordinates -- replace with real GPS log matching
-# (see gps_matcher.match_gps_to_frame) once real GPS data is available.
 ROUTE_START = (22.8046, 86.2029)
 ROUTE_END = (22.8060, 86.2050)
 
 
 def process_video(video_path: str, output_path: str = "output.mp4", conf_threshold: float = 0.4,
                    bus_id: str = "bus_01", send_events: bool = True):
-    model = YOLO("yolov8n.pt")  # nano model: fastest, good enough for MVP/demo
-    tracker = sv.ByteTrack()  # assigns persistent IDs across frames
+    model = YOLO("yolov8n.pt")  
+    tracker = sv.ByteTrack() 
     box_annotator = sv.BoxAnnotator()
     label_annotator = sv.LabelAnnotator()
 
-    seen_ids = set()  # every unique tracker ID we've ever seen = distinct vehicle count
+    seen_ids = set()  
     class_counts = {name: 0 for name in VEHICLE_CLASS_IDS.values()}
 
     cap = cv2.VideoCapture(video_path)
@@ -56,7 +40,6 @@ def process_video(video_path: str, output_path: str = "output.mp4", conf_thresho
         if not ret:
             break
 
-        # Run detection, keep only vehicle classes above confidence threshold
         results = model(frame, verbose=False)[0]
         detections = sv.Detections.from_ultralytics(results)
         mask = [
@@ -65,10 +48,8 @@ def process_video(video_path: str, output_path: str = "output.mp4", conf_thresho
         ]
         detections = detections[mask]
 
-        # Feed into tracker -> each detection now has a stable tracker_id
         detections = tracker.update_with_detections(detections)
 
-        # Update distinct-vehicle bookkeeping
         for tid, cls_id in zip(detections.tracker_id, detections.class_id):
             if tid not in seen_ids:
                 seen_ids.add(tid)

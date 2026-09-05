@@ -1,13 +1,3 @@
-"""
-Main FastAPI application.
-
-Run from the backend/ folder:
-    uvicorn main:app --reload
-
-Then open http://127.0.0.1:8000/docs for interactive API testing --
-FastAPI auto-generates this from the Pydantic schemas, no extra work needed.
-"""
-
 import json
 from datetime import datetime
 from typing import Optional, List
@@ -21,16 +11,10 @@ import models
 import schemas
 from database import engine, get_db
 
-# Creates the events.db file and the events table, if they don't already exist.
-# Safe to call every time the app starts -- does nothing if the table exists.
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Urban Intelligence Platform API")
 
-# CORS: without this, a browser will BLOCK requests from your frontend
-# (e.g. a Next.js app on Vercel) to this API, since they're on different
-# domains. allow_origins=["*"] is fine for a hackathon demo -- for a real
-# production app you'd restrict this to your actual frontend's domain.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

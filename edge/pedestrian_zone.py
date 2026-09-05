@@ -1,21 +1,3 @@
-"""
-Phase 4: Vulnerable pedestrian detection.
-
-Concept:
-- "person" is COCO class 0 -- YOLOv8n already knows this, no fine-tuning needed.
-- The PS wants "vulnerable pedestrian situations" specifically (e.g. children
-  crossing), not just "a pedestrian existed somewhere in frame". True age
-  classification needs a specialized model we don't have time to build for
-  MVP -- so we simplify: flag a pedestrian as an ALERT only when their
-  position falls inside a defined "danger zone" (near/on the road ahead),
-  vs. just a normal detection when they're on a distant sidewalk.
-- The danger zone is a polygon in pixel coordinates. For MVP this is
-  manually defined (a rough trapezoid representing "the road ahead of the
-  vehicle"). Later this could be made dynamic (e.g. lane detection), but a
-  fixed zone is a reasonable simplification for a dashcam-style fixed
-  camera angle.
-"""
-
 from ultralytics import YOLO
 import supervision as sv
 import cv2
@@ -24,10 +6,9 @@ import numpy as np
 from event_client import send_event
 from gps_matcher import simulate_route
 
-PERSON_CLASS_ID = 0  # COCO class id for "person"
+PERSON_CLASS_ID = 0 
 
-# Placeholder route coordinates -- replace with real GPS log matching
-# (see gps_matcher.match_gps_to_frame) once real GPS data is available.
+
 ROUTE_START = (22.8046, 86.2029)
 ROUTE_END = (22.8060, 86.2050)
 
@@ -38,17 +19,12 @@ def point_in_zone(point, zone_polygon):
 
 
 def get_default_zone(frame_width, frame_height):
-    """
-    Defines a trapezoid roughly covering 'the road ahead' in a typical
-    dashcam frame -- wider near the bottom (close to vehicle), narrower
-    near the middle of the frame (further down the road).
-    Tune these fractions against YOUR footage -- this is a starting point.
-    """
+   
     zone = np.array([
-        [int(frame_width * 0.15), frame_height],        # bottom-left
-        [int(frame_width * 0.85), frame_height],        # bottom-right
-        [int(frame_width * 0.65), int(frame_height * 0.55)],  # upper-right
-        [int(frame_width * 0.35), int(frame_height * 0.55)],  # upper-left
+        [int(frame_width * 0.15), frame_height],        
+        [int(frame_width * 0.85), frame_height],        
+        [int(frame_width * 0.65), int(frame_height * 0.55)], 
+        [int(frame_width * 0.35), int(frame_height * 0.55)],  
     ], dtype=np.int32)
     return zone
 
@@ -70,7 +46,7 @@ def process_video(video_path: str, output_path: str = "pedestrian_output.mp4", c
     writer = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
 
     zone = get_default_zone(w, h)
-    alert_events = []  # collects {frame, tracker_id} for each alert -- this is what would become the JSON event in phase later
+    alert_events = [] 
     frame_idx = 0
 
     while True:
@@ -90,7 +66,7 @@ def process_video(video_path: str, output_path: str = "pedestrian_output.mp4", c
         labels = []
         for i, (tid, box) in enumerate(zip(detections.tracker_id, detections.xyxy)):
             x1, y1, x2, y2 = box
-            foot_point = (int((x1 + x2) / 2), int(y2))  # bottom-center of box = where the person is standing
+            foot_point = (int((x1 + x2) / 2), int(y2))
             in_danger_zone = point_in_zone(foot_point, zone)
             if in_danger_zone:
                 alert_events.append({"frame": frame_idx, "tracker_id": int(tid)})
@@ -110,7 +86,7 @@ def process_video(video_path: str, output_path: str = "pedestrian_output.mp4", c
                 labels.append(f"person #{tid}")
 
         annotated = frame.copy()
-        cv2.polylines(annotated, [zone], isClosed=True, color=(0, 255, 255), thickness=2)  # draw danger zone
+        cv2.polylines(annotated, [zone], isClosed=True, color=(0, 255, 255), thickness=2)
         annotated = box_annotator.annotate(annotated, detections)
         annotated = label_annotator.annotate(annotated, detections, labels)
         writer.write(annotated)

@@ -1,19 +1,3 @@
-"""
-Phase 5: Incident detection (rash driving proxy) + ANPR.
-
-Concept:
-- Reuses the same detect+track loop from vehicle_density.py.
-- "Rash driving" proxy: track each vehicle's bounding-box AREA across
-  frames. A rapidly growing box area means the vehicle is approaching the
-  camera unusually fast (tailgating / sudden acceleration toward us).
-  This is a heuristic, not true behavior classification -- disclose this
-  simplification when presenting.
-- Once a vehicle is flagged, crop its bounding box and run OCR directly on
-  it to attempt plate extraction. No dedicated plate-detector model here
-  (that would need its own fine-tuning, like the pothole model) -- this is
-  a v1 simplification.
-"""
-
 from ultralytics import YOLO
 import supervision as sv
 import cv2
@@ -24,16 +8,11 @@ from gps_matcher import simulate_route
 
 VEHICLE_CLASS_IDS = {2: "car", 3: "motorcycle", 5: "bus", 7: "truck"}
 
-# Placeholder route coordinates -- replace with real GPS log matching
-# (see gps_matcher.match_gps_to_frame) once real GPS data is available.
 ROUTE_START = (22.8046, 86.2029)
 ROUTE_END = (22.8060, 86.2050)
 
-# How fast a box's area can grow between consecutive frames before we
-# flag it as "approaching too fast". Tune this against real footage --
-# there's no universal correct value, it depends on camera FPS and typical
-# following distance.
-AREA_GROWTH_THRESHOLD = 1.4  # e.g. 1.4 = area grew 40% in one frame
+
+AREA_GROWTH_THRESHOLD = 1.8
 
 
 def process_video(video_path: str, output_path: str = "incident_output.mp4", conf_threshold: float = 0.4,
@@ -42,7 +21,7 @@ def process_video(video_path: str, output_path: str = "incident_output.mp4", con
     tracker = sv.ByteTrack()
     box_annotator = sv.BoxAnnotator()
     label_annotator = sv.LabelAnnotator()
-    ocr_reader = easyocr.Reader(["en"], gpu=False)  # set gpu=True on a CUDA machine for speed
+    ocr_reader = easyocr.Reader(["en"], gpu=False) 
 
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
@@ -53,8 +32,8 @@ def process_video(video_path: str, output_path: str = "incident_output.mp4", con
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     writer = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
 
-    previous_areas = {}   # tracker_id -> last frame's box area
-    incidents = []         # collected incident events
+    previous_areas = {}  
+    incidents = []      
     frame_idx = 0
 
     while True:
@@ -85,10 +64,10 @@ def process_video(video_path: str, output_path: str = "incident_output.mp4", con
             previous_areas[tid] = area
 
             if flagged:
-                # Crop the vehicle and attempt plate OCR
+                
                 crop = frame[int(y1):int(y2), int(x1):int(x2)]
                 ocr_results = ocr_reader.readtext(crop) if crop.size > 0 else []
-                # Pick the OCR result with highest confidence, if any text found
+                
                 plate_text, plate_conf = None, 0.0
                 if ocr_results:
                     best = max(ocr_results, key=lambda r: r[2])
@@ -107,7 +86,7 @@ def process_video(video_path: str, output_path: str = "incident_output.mp4", con
                     lat, lon = simulate_route(*ROUTE_START, *ROUTE_END, frame_idx, total_frames)
                     send_event(
                         event_type="incident",
-                        confidence=0.9,  # confidence in the "incident" flag itself, not the plate read
+                        confidence=0.9,
                         gps_lat=lat, gps_lon=lon,
                         bus_id=bus_id,
                         extra={

@@ -1,24 +1,10 @@
-"""
-Central platform: check if a detected event (pothole, pedestrian alert, etc.)
-is near a school, using OpenStreetMap's free Overpass API.
-
-This runs on the BACKEND when an event is ingested, not on the edge device --
-it's a one-time lookup against map data, not a video-processing task.
-
-NOTE: requires internet access and the `requests` library.
-pip install requests
-"""
-
 import requests
 
-# Public Overpass instances -- if the first is down/rate-limiting, fall back to the next
 OVERPASS_MIRRORS = [
     "https://overpass-api.de/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",
 ]
 
-# Overpass's public servers reject requests with the default python-requests
-# User-Agent as basic bot filtering -- a real-looking User-Agent avoids this.
 HEADERS = {"User-Agent": "SIH2026-UrbanIntelligencePlatform/1.0 (student hackathon project)"}
 
 
@@ -82,7 +68,6 @@ def evaluate_infrastructure_need(event_lat, event_lon, pedestrian_alert_count: i
 
 
 if __name__ == "__main__":
-    # Example: test against a known coordinate (replace with a real one near you)
     result = evaluate_infrastructure_need(
         event_lat=22.805301, event_lon=86.203951, pedestrian_alert_count=5
     )

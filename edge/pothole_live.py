@@ -1,14 +1,3 @@
-"""
-Phase 3 (live pipeline version): Pothole detection, frame-by-frame,
-sending an event to the backend for each detection.
-
-This replaces test_pothole_video.py's bulk model(video) call with the
-same frame-by-frame loop pattern used in vehicle_density.py,
-pedestrian_zone.py, and incident_detection.py -- needed because sending
-one event per detection requires processing frame-by-frame, not handing
-the whole video to the model in one call.
-"""
-
 from ultralytics import YOLO
 import cv2
 
@@ -17,8 +6,6 @@ from gps_matcher import simulate_route
 
 WEIGHTS_PATH = "models/pothole_detector/weights/best.pt"
 
-# Placeholder route coordinates -- replace with real GPS log matching
-# (see gps_matcher.match_gps_to_frame) once real GPS data is available.
 ROUTE_START = (22.8046, 86.2029)
 ROUTE_END = (22.8060, 86.2050)
 
@@ -59,7 +46,7 @@ def process_video(video_path: str, output_path: str = "pothole_output.mp4", conf
                     bus_id=bus_id,
                 )
 
-        annotated = results.plot()  # Ultralytics' built-in box-drawing for quick visual output
+        annotated = results.plot() 
         writer.write(annotated)
         frame_idx += 1
 

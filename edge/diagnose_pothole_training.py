@@ -1,13 +1,5 @@
-"""
-Diagnose why the pothole model is predicting full-screen boxes.
-
-Run from the project ROOT:
-    python edge/diagnose_pothole_training.py
-"""
-
 import os
 import glob
-
 
 def count_images(folder):
     if not os.path.exists(folder):
@@ -16,12 +8,7 @@ def count_images(folder):
 
 
 def inspect_labels(labels_folder, n=5):
-    """
-    YOLO label format per line: class x_center y_center width height
-    (all values normalized 0-1, relative to image size).
-    If width/height are consistently close to 1.0, the labels themselves
-    are marking "the whole image" as the object -- that's the bug.
-    """
+    
     if not os.path.exists(labels_folder):
         print(f"  Labels folder not found: {labels_folder}")
         return

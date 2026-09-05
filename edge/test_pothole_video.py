@@ -1,10 +1,3 @@
-"""
-Test the fine-tuned pothole model against a full video (not just one image).
-
-Run from the project ROOT folder:
-    python edge/test_pothole_video.py data/sample1.mp4
-"""
-
 import sys
 import os
 from ultralytics import YOLO
@@ -20,10 +13,8 @@ def test_on_video(video_path: str):
 
     model = YOLO(WEIGHTS_PATH)
 
-    # save=True writes an annotated output video automatically into runs/detect/predict*/
     results = model(video_path, save=True, conf=0.4)
 
-    # Count how many frames had at least one pothole detected
     frames_with_detection = sum(1 for r in results if len(r.boxes) > 0)
     total_detections = sum(len(r.boxes) for r in results)
 
