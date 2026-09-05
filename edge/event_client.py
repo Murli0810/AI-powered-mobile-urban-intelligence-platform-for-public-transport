@@ -1,6 +1,6 @@
 import requests
 
-BACKEND_URL = "http://127.0.0.1:8000"
+BACKEND_URL = "https://ai-powered-mobile-urban-intelligence.onrender.com"
 
 
 def send_event(event_type: str, confidence: float, gps_lat: float, gps_lon: float,
