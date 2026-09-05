@@ -21,7 +21,15 @@ import supervision as sv
 import cv2
 import numpy as np
 
+from event_client import send_event
+from gps_matcher import simulate_route
+
 PERSON_CLASS_ID = 0  # COCO class id for "person"
+
+# Placeholder route coordinates -- replace with real GPS log matching
+# (see gps_matcher.match_gps_to_frame) once real GPS data is available.
+ROUTE_START = (22.8046, 86.2029)
+ROUTE_END = (22.8060, 86.2050)
 
 
 def point_in_zone(point, zone_polygon):
@@ -45,7 +53,8 @@ def get_default_zone(frame_width, frame_height):
     return zone
 
 
-def process_video(video_path: str, output_path: str = "pedestrian_output.mp4", conf_threshold: float = 0.4):
+def process_video(video_path: str, output_path: str = "pedestrian_output.mp4", conf_threshold: float = 0.4,
+                   bus_id: str = "bus_01", send_events: bool = True):
     model = YOLO("yolov8n.pt")
     tracker = sv.ByteTrack()
     box_annotator = sv.BoxAnnotator()
@@ -57,6 +66,7 @@ def process_video(video_path: str, output_path: str = "pedestrian_output.mp4", c
 
     fps = cap.get(cv2.CAP_PROP_FPS) or 25
     w, h = int(cap.get(3)), int(cap.get(4))
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     writer = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
 
     zone = get_default_zone(w, h)
@@ -85,6 +95,17 @@ def process_video(video_path: str, output_path: str = "pedestrian_output.mp4", c
             if in_danger_zone:
                 alert_events.append({"frame": frame_idx, "tracker_id": int(tid)})
                 labels.append(f"ALERT #{tid}")
+
+                if send_events:
+                    conf_idx = list(detections.tracker_id).index(tid)
+                    lat, lon = simulate_route(*ROUTE_START, *ROUTE_END, frame_idx, total_frames)
+                    send_event(
+                        event_type="pedestrian_alert",
+                        confidence=float(detections.confidence[conf_idx]),
+                        gps_lat=lat, gps_lon=lon,
+                        bus_id=bus_id,
+                        extra={"tracker_id": int(tid)},
+                    )
             else:
                 labels.append(f"person #{tid}")
 

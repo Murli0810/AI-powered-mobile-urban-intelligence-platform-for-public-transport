@@ -84,6 +84,6 @@ def evaluate_infrastructure_need(event_lat, event_lon, pedestrian_alert_count: i
 if __name__ == "__main__":
     # Example: test against a known coordinate (replace with a real one near you)
     result = evaluate_infrastructure_need(
-        event_lat=22.772303, event_lon=86.204252, pedestrian_alert_count=5
+        event_lat=22.805301, event_lon=86.203951, pedestrian_alert_count=5
     )
     print(result)
