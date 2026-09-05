@@ -40,14 +40,14 @@ def db_event_to_out(event: models.Event) -> schemas.EventOut:
     )
 
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 def health_check():
     return {"status": "ok", "service": "Urban Intelligence Platform API"}
 
 
 @app.post("/events", response_model=schemas.EventOut)
 def create_event(event: schemas.EventCreate, db: Session = Depends(get_db)):
-    """Ingests one event from an edge device (bus)."""
+    
     db_event = models.Event(
         event_type=event.event_type,
         confidence=event.confidence,
@@ -69,7 +69,7 @@ def list_events(
     since: Optional[datetime] = None,
     db: Session = Depends(get_db),
 ):
-    """Matches the frontend's GET /api/events?type=...&since=... contract."""
+    
     query = db.query(models.Event)
     if event_type:
         query = query.filter(models.Event.event_type == event_type)
@@ -81,13 +81,7 @@ def list_events(
 
 @app.get("/heatmap")
 def get_heatmap(db: Session = Depends(get_db)):
-    """
-    Aggregates vehicle-density events by rounded coordinate into heatmap
-    points. Rounding to 3 decimal places groups nearby points together
-    (~111m grid cells) instead of plotting every single detection as a
-    separate point -- this is what makes it a "heatmap" instead of a
-    scatter plot of thousands of dots.
-    """
+    
     results = (
         db.query(
             func.round(models.Event.gps_lat, 3).label("lat"),
@@ -107,10 +101,4 @@ def get_heatmap(db: Session = Depends(get_db)):
 
 @app.get("/routes/delays")
 def get_route_delays():
-    """
-    Placeholder for route delay analytics -- needs real route/segment
-    definitions to compute meaningfully, which we haven't built yet.
-    Returns an empty list for now so the frontend's chart component has
-    something valid to render against without crashing.
-    """
     return []
